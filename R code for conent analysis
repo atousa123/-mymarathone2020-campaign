@@ -1,0 +1,178 @@
+# install packages and upload libraries
+install.packages("twitteR")
+library(twitteR)
+install.packages("hms")
+library(hms)
+install.packages("lubridate")
+library(lubridate)
+install.packages("tidytext")
+library(tidytext)
+install.packages("tm")
+library(tm)
+install.packages("igraph")
+library(igraph)
+install.packages("glue")
+library(glue)
+install.packages("networkD3")
+library(networkD3)
+install.packages("plyr")
+library(plyr)
+install.packages("ggeasy")
+library(ggeasy)
+install.packages("plotly")
+library(plotly)
+install.packages("dplyr")
+library(dplyr)  
+install.packages("magrittr")
+library(magrittr)
+install.packages("tidyverse")
+library(tidyverse)
+install.packages("janeaustenr")
+library(janeaustenr)
+install.packages("widyr")
+library(widyr)
+installed.packages("syuzhet")
+library(syuzhet)
+install.packages("SnowballC")
+library("SnowballC")
+install.packages("RCurl")
+library(RCurl)
+install.packages("httr")
+library(httr)
+install.packages("wordcloud")
+library(wordcloud)
+
+
+# get authorirty to collect data from Twitter API by authonitical keys
+consumer_key <- '2TLf7eRIvXjTgTMifF0zbesbM'
+consumer_secret <- 'yjzO8uYaUGzYLT2F4pq5A0ympRxGJqRr3mn34zw8RipzVutrMl'
+access_token <- '1100668046731964416-EFfEwstgPFfy1CEeXPTOEcG142QW0H'
+access_secret <- 'xURYmRs5YxxP7owVWXc7ISssxsAxBUaYTwuHeksfdQTtw'
+
+setup_twitter_oauth(consumer_key, consumer_secret, access_token, access_secret)
+
+tweets_pa <- userTimeline("heartfoundation", n=10000)
+
+# extracting 10000 tweets related to physical activity topic
+tweets <- searchTwitter("#physicalactivity", n=10000, lang="en")
+
+n.tweet <- length(tweets)
+
+# convert tweets to a data frame
+tweets.df <- twListToDF(tweets)
+
+head(tweets.df$text)
+
+# removing hashtag , urls and other special charactersR
+tweets.df2 <- gsub("http.*","",tweets.df$text)
+
+tweets.df2 <- gsub("https.*","",tweets.df2)
+
+tweets.df2 <- gsub("#.*","",tweets.df2)
+
+tweets.df2 <- gsub("@.*","",tweets.df2)
+head(tweets.df2)
+
+# getting sentiment defining words
+word.df <- as.vector(tweets.df2)
+
+emotion.df <- get_nrc_sentiment(word.df)
+
+emotion.df2 <- cbind(tweets.df2, emotion.df) 
+
+head(emotion.df2)
+
+# getting positive sentiments
+sent.value <- get_sentiment(word.df)
+
+most.positive <- word.df[sent.value == max(sent.value)]
+most.positive
+
+# getting negative sentiments
+most.negative <- word.df[sent.value <= min(sent.value)] 
+most.negative 
+
+sent.value
+
+# positive tweets
+positive.tweets <- word.df[sent.value > 0]
+head(positive.tweets)
+
+# negative tweets
+negative.tweets <- word.df[sent.value < 0] 
+head(negative.tweets)
+
+#neutral tweets
+neutral.tweets <- word.df[sent.value == 0] 
+head(neutral.tweets)
+
+# search for tweets in english language #physicalactivity
+tweets = searchTwitter("#physicalactivity", n = 10000, lang = "en")
+
+# store the tweets into dataframe
+tweets.df = twListToDF(tweets)
+
+# cleaning tweets
+
+tweets.df$text=gsub("&amp", "", tweets.df$text)
+tweets.df$text = gsub("&amp", "", tweets.df$text)
+tweets.df$text = gsub("(RT|via)((?:\\b\\W*@\\w+)+)", "", tweets.df$text)
+tweets.df$text = gsub("@\\w+", "", tweets.df$text)
+tweets.df$text = gsub("[[:punct:]]", "", tweets.df$text)
+tweets.df$text = gsub("[[:digit:]]", "", tweets.df$text)
+tweets.df$text = gsub("http\\w+", "", tweets.df$text)
+tweets.df$text = gsub("[ \t]{2,}", "", tweets.df$text)
+tweets.df$text = gsub("^\\s+|\\s+$", "", tweets.df$text)
+
+tweets.df$text <- iconv(tweets.df$text, "UTF-8", "ASCII", sub="")
+
+# Emotions for each tweet using NRC dictionary
+emotions <- get_nrc_sentiment(tweets.df$text)
+emo_bar = colSums(emotions)
+emo_sum = data.frame(count=emo_bar, emotion=names(emo_bar))
+emo_sum$emotion = factor(emo_sum$emotion, levels=emo_sum$emotion[order(emo_sum$count, decreasing = TRUE)])
+
+# Visualize the emotions from NRC sentiments
+library(plotly)
+p <- plot_ly(emo_sum, x=~emotion, y=~count, type="bar", color=~emotion) %>%
+  layout(xaxis=list(title=""), showlegend=FALSE,
+         title="Emotion Type for hashtag: #physicalactivity")
+p
+
+# Create comparison word cloud data
+
+wordcloud_tweet = c(
+  paste(tweets.df$text[emotions$anger > 0], collapse=" "),
+  paste(tweets.df$text[emotions$anticipation > 0], collapse=" "),
+  paste(tweets.df$text[emotions$disgust > 0], collapse=" "),
+  paste(tweets.df$text[emotions$fear > 0], collapse=" "),
+  paste(tweets.df$text[emotions$joy > 0], collapse=" "),
+  paste(tweets.df$text[emotions$sadness > 0], collapse=" "),
+  paste(tweets.df$text[emotions$surprise > 0], collapse=" "),
+  paste(tweets.df$text[emotions$trust > 0], collapse=" ")
+)
+
+# create corpus
+corpus = Corpus(VectorSource(wordcloud_tweet))
+
+# remove punctuation, convert every word in lower case and remove stop words
+
+corpus = tm_map(corpus, tolower)
+corpus = tm_map(corpus, removePunctuation)
+corpus = tm_map(corpus, removeWords, c(stopwords("english")))
+corpus = tm_map(corpus, stemDocument)
+
+# create document term matrix
+
+tdm = TermDocumentMatrix(corpus)
+
+# convert as matrix
+tdm = as.matrix(tdm)
+tdmnew <- tdm[nchar(rownames(tdm)) < 11,]
+
+# column name binding
+colnames(tdm) = c('anger', 'anticipation', 'disgust', 'fear', 'joy', 'sadness', 'surprise', 'trust')
+colnames(tdmnew) <- colnames(tdm)
+comparison.cloud(tdmnew, random.order=FALSE,
+                 colors = c("#00B2FF", "red", "#FF0099", "#6600CC", "green", "orange", "blue", "brown"),
+                 title.size=1, max.words=250, scale=c(2.5, 0.4),rot.per=0.4)
